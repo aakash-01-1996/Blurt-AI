@@ -32,7 +32,8 @@ def handle_transcribe(job: Job) -> None:
 
     audio_bytes = storage.get(flac_key)
 
-    text, segments = stt.transcribe(audio_bytes)
+    result = stt.transcribe(audio_bytes)
+    text, segments = result.text, result.segments
     logger.info(
         "transcribed recording",
         extra={
@@ -40,6 +41,8 @@ def handle_transcribe(job: Job) -> None:
             "provider": stt.model_name,
             "chars": len(text),
             "segments": len(segments),
+            "language": result.language,
+            "translated": settings.stt_translate,
         },
     )
 

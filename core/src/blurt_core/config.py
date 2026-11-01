@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     stt_provider: str = "mlx"
     stt_model: str = "mlx-community/whisper-small"
     groq_api_key: str = ""
+    # When true, transcribe-and-translate to English (Whisper `translate` task).
+    # Lets Hindi/Marathi (etc.) audio flow through the English-only pipeline.
+    stt_translate: bool = False
 
     # LLM
     llm_base_url: str = "http://localhost:11434/v1"

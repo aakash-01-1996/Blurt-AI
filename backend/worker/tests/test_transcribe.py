@@ -8,15 +8,19 @@ from unittest.mock import patch
 
 from blurt_core.db.models import Job, JobStatus, Recording, RecordingStatus, Transcript
 from blurt_core.providers.storage import FakeStorage
-from blurt_core.providers.stt import Segment
+from blurt_core.providers.stt import Segment, TranscriptionResult
 from sqlalchemy.orm import Session
 
 
 class _StubStt:
     model_name = "stub-whisper"
 
-    def transcribe(self, audio_bytes: bytes) -> tuple[str, list[Segment]]:
-        return "hello world", [Segment(start=0.0, end=1.5, text="hello world")]
+    def transcribe(self, audio_bytes: bytes) -> TranscriptionResult:
+        return TranscriptionResult(
+            text="hello world",
+            segments=[Segment(start=0.0, end=1.5, text="hello world")],
+            language="en",
+        )
 
 
 def _make_job(recording_id: uuid.UUID) -> Job:
