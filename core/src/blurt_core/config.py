@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # STT
     stt_provider: str = "mlx"
-    stt_model: str = "mlx-community/whisper-small"
+    stt_model: str = "mlx-community/whisper-small-mlx"
     groq_api_key: str = ""
     # When true, transcribe-and-translate to English (Whisper `translate` task).
     # Lets Hindi/Marathi (etc.) audio flow through the English-only pipeline.
