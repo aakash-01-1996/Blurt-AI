@@ -80,6 +80,18 @@ describe("MicCard", () => {
     fireEvent.change(input, { target: { files: [new File(["x"], "a.mp3", { type: "audio/mpeg" })] } });
     expect(onPickFile).toHaveBeenCalledTimes(1);
   });
+
+  it("reviews a stopped recording with process + re-take (no auto-upload)", () => {
+    const onSubmit = vi.fn();
+    const onDiscard = vi.fn();
+    render(<MicCard {...micProps} recordedUrl="blob:test" onSubmit={onSubmit} onDiscard={onDiscard} />);
+    // Not uploading automatically — it waits for a choice.
+    expect(screen.queryByText("Uploading…")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Start processing"));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText("Re-take"));
+    expect(onDiscard).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("ThisWeekPanel", () => {
@@ -108,28 +120,33 @@ describe("ThisWeekPanel", () => {
 describe("RecordingRow", () => {
   const rec: Recording = { id: "r1", status: "ready", duration_s: 41, created_at: new Date().toISOString() };
 
+  it("labels the recording by number", () => {
+    render(<RecordingRow recording={rec} number={3} meta={null} onReview={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.getByText("Recording 3")).toBeInTheDocument();
+  });
+
   it("offers review when items are pending", () => {
     const onReview = vi.fn();
-    render(<RecordingRow recording={rec} meta={{ pending: 5, kept: 0, firstSpan: "hi", sections: {} }} onReview={onReview} onDelete={vi.fn()} />);
+    render(<RecordingRow recording={rec} number={1} meta={{ pending: 5, kept: 0, firstSpan: "hi", sections: {} }} onReview={onReview} onDelete={vi.fn()} />);
     expect(screen.getByText("5 items to review")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Review"));
     expect(onReview).toHaveBeenCalledWith("r1");
   });
 
   it("shows a kept summary once reviewed", () => {
-    render(<RecordingRow recording={rec} meta={{ pending: 0, kept: 7, firstSpan: null, sections: {} }} onReview={vi.fn()} onDelete={vi.fn()} />);
+    render(<RecordingRow recording={rec} number={1} meta={{ pending: 0, kept: 7, firstSpan: null, sections: {} }} onReview={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText("7 items kept")).toBeInTheDocument();
   });
 
   it("shows a processing label mid-pipeline", () => {
-    render(<RecordingRow recording={{ ...rec, status: "splitting" }} meta={null} onReview={vi.fn()} onDelete={vi.fn()} />);
+    render(<RecordingRow recording={{ ...rec, status: "splitting" }} number={1} meta={null} onReview={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText("Processing: splitting into items")).toBeInTheDocument();
   });
 
   it("deletes after confirmation", () => {
     const onDelete = vi.fn();
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(<RecordingRow recording={rec} meta={{ pending: 0, kept: 1, firstSpan: null, sections: {} }} onReview={vi.fn()} onDelete={onDelete} />);
+    render(<RecordingRow recording={rec} number={1} meta={{ pending: 0, kept: 1, firstSpan: null, sections: {} }} onReview={vi.fn()} onDelete={onDelete} />);
     fireEvent.click(screen.getByLabelText("Delete recording"));
     expect(onDelete).toHaveBeenCalledWith("r1");
   });
@@ -137,7 +154,7 @@ describe("RecordingRow", () => {
   it("does not delete when confirmation is declined", () => {
     const onDelete = vi.fn();
     vi.spyOn(window, "confirm").mockReturnValue(false);
-    render(<RecordingRow recording={rec} meta={null} onReview={vi.fn()} onDelete={onDelete} />);
+    render(<RecordingRow recording={rec} number={1} meta={null} onReview={vi.fn()} onDelete={onDelete} />);
     fireEvent.click(screen.getByLabelText("Delete recording"));
     expect(onDelete).not.toHaveBeenCalled();
   });

@@ -15,13 +15,14 @@ const PROCESSING_LABELS: Record<string, string> = {
 
 interface RecordingRowProps {
   recording: Recording;
+  number: number;
   meta: RecMeta | null;
   onReview: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function RecordingRow({ recording, meta, onReview, onDelete }: RecordingRowProps) {
-  const dateLabel = formatDateTimeLabel(new Date(recording.created_at));
+export function RecordingRow({ recording, number, meta, onReview, onDelete }: RecordingRowProps) {
+  const timeLabel = formatDateTimeLabel(new Date(recording.created_at));
   const dur = formatDuration(recording.duration_s);
   const descriptor = meta?.firstSpan ? truncate(meta.firstSpan, 38) : null;
 
@@ -32,9 +33,9 @@ export function RecordingRow({ recording, meta, onReview, onDelete }: RecordingR
   return (
     <div className="bg-surface rounded-2xl px-5 py-4 flex items-center justify-between gap-4 border border-[#E5E5EA] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="text-[15px] font-bold text-[#1D1D1F]">{dateLabel}</span>
+        <span className="text-[15px] font-bold text-[#1D1D1F]">Recording {number}</span>
         <span className="text-sm text-gray-400 truncate">
-          {dur}
+          {timeLabel} · {dur}
           {descriptor ? ` · ${descriptor}` : ""}
         </span>
       </div>

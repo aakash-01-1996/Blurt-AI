@@ -106,6 +106,9 @@ export function RecordPage({ token, onNavigateReview }: RecordPageProps) {
           analyser={recorder.analyser}
           onPause={recorder.pause}
           onResume={recorder.resume}
+          recordedUrl={recorder.recordedUrl}
+          onSubmit={() => void recorder.submit()}
+          onDiscard={recorder.discard}
           onToggle={() => (recorder.micActive ? recorder.stop() : recorder.start())}
           onPickFile={(file) => void recorder.uploadFile(file)}
         />
@@ -122,10 +125,11 @@ export function RecordPage({ token, onNavigateReview }: RecordPageProps) {
         <p className="text-sm text-gray-400">No recordings yet.</p>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {recordings.map((r) => (
+          {recordings.map((r, i) => (
             <RecordingRow
               key={r.id}
               recording={r}
+              number={recordings.length - i}
               meta={metaMap[r.id] ?? null}
               onReview={onNavigateReview}
               onDelete={handleDelete}
