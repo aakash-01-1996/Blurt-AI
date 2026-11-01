@@ -63,32 +63,33 @@ def probe_duration(data: bytes) -> float:
 
 def normalize(data: bytes) -> bytes:
     """Convert audio to 16 kHz mono FLAC. Raises AudioError on failure."""
-    with (
-        tempfile.NamedTemporaryFile(suffix=".input") as src,
-        tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as dst,
-    ):
+    # Keep the input file open/alive for the whole ffmpeg run — it must still
+    # exist on disk when ffmpeg reads it.
+    with tempfile.NamedTemporaryFile(suffix=".input") as src:
         src.write(data)
         src.flush()
-        dst_path = Path(dst.name)
 
-    try:
-        result = subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                src.name,
-                "-ar",
-                "16000",
-                "-ac",
-                "1",
-                str(dst_path),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            raise AudioError(f"ffmpeg failed: {result.stderr.strip()}")
-        return dst_path.read_bytes()
-    finally:
-        dst_path.unlink(missing_ok=True)
+        with tempfile.NamedTemporaryFile(suffix=".flac", delete=False) as dst:
+            dst_path = Path(dst.name)
+
+        try:
+            result = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    src.name,
+                    "-ar",
+                    "16000",
+                    "-ac",
+                    "1",
+                    str(dst_path),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                raise AudioError(f"ffmpeg failed: {result.stderr.strip()}")
+            return dst_path.read_bytes()
+        finally:
+            dst_path.unlink(missing_ok=True)

@@ -40,6 +40,14 @@ def test_probe_duration_reads_normal_file() -> None:
 
 
 @needs_ffmpeg
+def test_normalize_produces_decodable_flac() -> None:
+    out = audio.normalize(_make_wav(1.0))
+    assert len(out) > 0
+    # Output must be a real, decodable file of about the same length.
+    assert abs(audio.probe_duration(out) - 1.0) < 0.3
+
+
+@needs_ffmpeg
 def test_decode_duration_direct() -> None:
     with tempfile.NamedTemporaryFile(suffix=".wav") as f:
         f.write(_make_wav(2.0))
