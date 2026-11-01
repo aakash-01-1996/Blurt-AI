@@ -1,14 +1,17 @@
+import json
 import logging
 import signal
 import time
 import traceback
+import uuid
 from collections.abc import Callable
 
 from blurt_core.config import settings
-from blurt_core.db.models import Job
+from blurt_core.db.models import Job, Recording, RecordingStatus
 from blurt_core.db.session import get_session
 from blurt_core.logging import configure_logging
 from blurt_core.queue import claim, complete, fail, recover_stuck
+from sqlalchemy.orm import Session
 
 from blurt_worker.handlers.extract import handle_extract
 from blurt_worker.handlers.normalize import handle_normalize
@@ -46,6 +49,28 @@ def _handle_sigterm(sig: int, frame: object) -> None:
     _running = False
 
 
+def _mark_recording_failed(session: Session, job_id: uuid.UUID) -> None:
+    """After a job permanently fails, move its recording to the terminal
+    'failed' state. This is the safety net that guarantees a recording can
+    never hang in an in-progress status (transcribing/splitting/routing/…),
+    whatever the stage or cause of the failure."""
+    job = session.get(Job, job_id)
+    if job is None:
+        return
+    payload = json.loads(job.payload) if isinstance(job.payload, str) else job.payload
+    rid = payload.get("recording_id") if isinstance(payload, dict) else None
+    if not rid:
+        return  # jobs not tied to a recording (e.g. summarize)
+    recording = session.get(Recording, uuid.UUID(str(rid)))
+    if recording and recording.status not in (RecordingStatus.ready, RecordingStatus.failed):
+        recording.status = RecordingStatus.failed
+        session.flush()
+        logger.error(
+            "recording marked failed after permanent job failure",
+            extra={"recording_id": str(rid), "kind": job.kind},
+        )
+
+
 def _process_one() -> bool:
     """Claim and process one job. Returns True if a job was processed."""
     with get_session() as session:
@@ -58,7 +83,8 @@ def _process_one() -> bool:
     handler = _handlers.get(kind)
     if handler is None:
         with get_session() as session:
-            fail(session, job_id, f"unknown job kind: {kind}")
+            if fail(session, job_id, f"unknown job kind: {kind}"):
+                _mark_recording_failed(session, job_id)
         logger.error("no handler for job kind", extra={"kind": kind})
         return True
 
@@ -73,7 +99,8 @@ def _process_one() -> bool:
             complete(session, job_id)
     except Exception:
         with get_session() as session:
-            fail(session, job_id, traceback.format_exc())
+            if fail(session, job_id, traceback.format_exc()):
+                _mark_recording_failed(session, job_id)
         logger.exception("job failed", extra={"job_id": str(job_id), "kind": kind})
 
     return True

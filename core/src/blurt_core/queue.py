@@ -77,25 +77,29 @@ def complete(session: Session, job_id: uuid.UUID) -> None:
     logger.info("completed job", extra={"job_id": str(job_id)})
 
 
-def fail(session: Session, job_id: uuid.UUID, error: str) -> None:
+def fail(session: Session, job_id: uuid.UUID, error: str) -> bool:
+    """Record a job failure. Returns True if the job has now permanently failed
+    (attempts exhausted), False if it was re-queued for another retry."""
     job = session.get(Job, job_id)
     if job is None:
-        return
+        return False
     job.last_error = error
     if job.attempts >= job.max_attempts:
         job.status = JobStatus.failed
         logger.warning("job permanently failed", extra={"job_id": str(job_id), "error": error})
-    else:
-        job.status = JobStatus.queued
-        backoff_seconds = 2**job.attempts * 5  # 10s, 20s, 40s, …
-        job.run_after = datetime.now(UTC) + timedelta(seconds=backoff_seconds)
-        job.locked_at = None
-        job.locked_by = None
-        logger.warning(
-            "job failed, will retry",
-            extra={"job_id": str(job_id), "attempts": job.attempts, "error": error},
-        )
+        session.flush()
+        return True
+    job.status = JobStatus.queued
+    backoff_seconds = 2**job.attempts * 5  # 10s, 20s, 40s, …
+    job.run_after = datetime.now(UTC) + timedelta(seconds=backoff_seconds)
+    job.locked_at = None
+    job.locked_by = None
+    logger.warning(
+        "job failed, will retry",
+        extra={"job_id": str(job_id), "attempts": job.attempts, "error": error},
+    )
     session.flush()
+    return False
 
 
 def recover_stuck(session: Session, *, timeout_minutes: int = 10) -> int:

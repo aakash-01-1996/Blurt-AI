@@ -85,7 +85,7 @@ def test_fail_retries_with_backoff(session: Session) -> None:
     job: Job | None = claim(session, "worker-1")
     session.commit()
     assert job is not None
-    fail(session, job.id, "error 1")
+    assert fail(session, job.id, "error 1") is False  # retry, not permanent
     session.commit()
     session.refresh(job)
     assert job.status == JobStatus.queued
@@ -112,7 +112,7 @@ def test_fail_retries_with_backoff(session: Session) -> None:
     job3: Job | None = claim(session, "worker-1")
     session.commit()
     assert job3 is not None
-    fail(session, job3.id, "error 3")
+    assert fail(session, job3.id, "error 3") is True  # permanently failed
     session.commit()
     session.refresh(job3)
     assert job3.status == JobStatus.failed
