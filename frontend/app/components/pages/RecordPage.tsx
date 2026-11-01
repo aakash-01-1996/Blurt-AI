@@ -102,6 +102,10 @@ export function RecordPage({ token, onNavigateReview }: RecordPageProps) {
           uploading={recorder.uploading}
           elapsed={recorder.elapsed}
           uploadError={recorder.uploadError}
+          paused={recorder.paused}
+          analyser={recorder.analyser}
+          onPause={recorder.pause}
+          onResume={recorder.resume}
           onToggle={() => (recorder.micActive ? recorder.stop() : recorder.start())}
           onPickFile={(file) => void recorder.uploadFile(file)}
         />

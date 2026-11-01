@@ -28,6 +28,38 @@ describe("MicCard", () => {
     expect(screen.getByLabelText("Stop recording")).toBeInTheDocument();
   });
 
+  it("shows pause + stop controls while recording", () => {
+    render(<MicCard {...micProps} micActive />);
+    expect(screen.getByLabelText("Pause recording")).toBeInTheDocument();
+    expect(screen.getByLabelText("Stop recording")).toBeInTheDocument();
+  });
+
+  it("shows a paused state with a resume control", () => {
+    render(<MicCard {...micProps} micActive paused />);
+    expect(screen.getByText("Paused")).toBeInTheDocument();
+    expect(screen.getByLabelText("Resume recording")).toBeInTheDocument();
+  });
+
+  it("wires pause, resume and stop handlers", () => {
+    const onPause = vi.fn();
+    const onResume = vi.fn();
+    const onToggle = vi.fn();
+
+    const { rerender } = render(
+      <MicCard {...micProps} micActive onPause={onPause} onResume={onResume} onToggle={onToggle} />
+    );
+    fireEvent.click(screen.getByLabelText("Pause recording"));
+    expect(onPause).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByLabelText("Stop recording"));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MicCard {...micProps} micActive paused onPause={onPause} onResume={onResume} onToggle={onToggle} />
+    );
+    fireEvent.click(screen.getByLabelText("Resume recording"));
+    expect(onResume).toHaveBeenCalledTimes(1);
+  });
+
   it("toggles recording on click", () => {
     const onToggle = vi.fn();
     render(<MicCard {...micProps} onToggle={onToggle} />);
