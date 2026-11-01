@@ -135,6 +135,10 @@ class Transcript(Base):
     segments: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)  # type: ignore[type-arg]
     provider: Mapped[str] = mapped_column(String(64), nullable=False)
     model: Mapped[str] = mapped_column(String(128), nullable=False)
+    # Detected source language (ISO code, e.g. "en", "hi", "mr"); None if the
+    # provider didn't report one. When translate mode is on, `text` is English
+    # while this records the original spoken language.
+    source_language: Mapped[str | None] = mapped_column(String(16), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     recording: Mapped["Recording"] = relationship(back_populates="transcript")

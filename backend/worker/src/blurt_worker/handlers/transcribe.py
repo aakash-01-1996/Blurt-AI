@@ -57,6 +57,7 @@ def handle_transcribe(job: Job) -> None:
             segments=[s.to_dict() for s in segments],
             provider=settings.stt_provider,
             model=stt.model_name,
+            source_language=result.language,
         )
         session.add(transcript)
 
