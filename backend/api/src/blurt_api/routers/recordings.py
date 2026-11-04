@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from blurt_core.audio import AudioError, probe_duration
 from blurt_core.config import settings
@@ -43,7 +44,7 @@ class RecordingListItem(BaseModel):
     id: uuid.UUID
     status: RecordingStatus
     duration_s: float | None
-    created_at: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -84,7 +85,11 @@ async def upload_recording(file: UploadFile, user_id: CurrentUserId) -> Recordin
             status=RecordingStatus.uploaded,
         )
         session.add(recording)
+        session.flush()
         enqueue(session, "normalize", {"recording_id": str(recording_id)})
+        # Detach before the session commits (expire_on_commit) so the response
+        # model can read attributes after the session closes.
+        session.expunge(recording)
 
     return recording
 

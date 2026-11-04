@@ -69,7 +69,28 @@ def handle_extract(job: Job) -> None:
             prompt_version=EXTRACT_PROMPT_VERSION,
         )
 
-    fields = parse_extract_response(raw)
+    try:
+        fields = parse_extract_response(raw)
+    except ValueError:
+        # The LLM returned something unparseable (e.g. a small local model
+        # replying in prose instead of JSON). Degrade this one item to rejected
+        # rather than retrying forever and wedging the whole recording at
+        # 'routing'. Mirrors the "no prompt for section" fallback above.
+        logger.warning(
+            "extract returned unparseable output; rejecting item",
+            extra={"item_id": str(item_id), "section": section, "raw_preview": raw[:200]},
+        )
+        with get_session() as session:
+            item = session.get(Item, item_id)
+            if item:
+                item.status = ItemStatus.rejected
+                session.flush()
+                if _all_items_done(session, recording_id):
+                    recording = session.get(Recording, recording_id)
+                    if recording:
+                        recording.status = RecordingStatus.ready
+                        session.flush()
+        return
 
     with get_session() as session:
         item = session.get(Item, item_id)

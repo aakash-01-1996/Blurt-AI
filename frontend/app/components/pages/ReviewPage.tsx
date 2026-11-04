@@ -41,12 +41,19 @@ export function ReviewPage({ token, onCountChange }: ReviewPageProps) {
       if (cancelled) return;
       const map = Object.fromEntries(entries);
       setItemsMap(map);
-      onCountChange(Object.values(map).flat().filter((i) => i.status === "pending").length);
       setLoading(false);
     }
     void fetchAll();
     return () => { cancelled = true; };
-  }, [token, onCountChange]);
+  }, [token]);
+
+  // Keep the sidebar's review count in sync with loaded items. Done in an
+  // effect — never inside a setState updater — so we don't update a parent
+  // component (AppShell) while rendering this one.
+  useEffect(() => {
+    const pending = Object.values(itemsMap).flat().filter((i) => i.status === "pending").length;
+    onCountChange(pending);
+  }, [itemsMap, onCountChange]);
 
   // Focus on one recording: most recent with pending items, else most recent.
   const active = useMemo(() => {
@@ -89,11 +96,10 @@ export function ReviewPage({ token, onCountChange }: ReviewPageProps) {
     });
     if (!res.ok) return;
     const updated: Item = await res.json();
-    setItemsMap((prev) => {
-      const next = { ...prev, [active.id]: (prev[active.id] ?? []).map((i) => (i.id === itemId ? updated : i)) };
-      onCountChange(Object.values(next).flat().filter((i) => i.status === "pending").length);
-      return next;
-    });
+    setItemsMap((prev) => ({
+      ...prev,
+      [active.id]: (prev[active.id] ?? []).map((i) => (i.id === itemId ? updated : i)),
+    }));
   }
 
   async function handlePatch(itemId: string, fields: Record<string, string>) {
