@@ -36,6 +36,7 @@ def _transcript(t: Transcript) -> dict[str, Any]:
         "recording_id": str(t.recording_id),
         "text": t.text,
         "segments": t.segments,
+        "source_language": t.source_language,
         "created_at": t.created_at.isoformat() if t.created_at else None,
     }
 
