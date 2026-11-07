@@ -30,6 +30,22 @@ function getServerSnapshot(): string | null {
   return null;
 }
 
+// Module-level token mutators so non-React code (e.g. the shared fetch helper)
+// can update auth state and have every subscribed component re-render.
+export function setToken(t: string) {
+  try {
+    localStorage.setItem(TOKEN_KEY, t);
+  } catch {}
+  emit();
+}
+
+export function clearToken() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {}
+  emit();
+}
+
 // Reads the token from localStorage without a hydration mismatch (server snapshot is null).
 // `hydrated` is false until the client has mounted, so callers can avoid flashing
 // the login screen during SSR/first paint when localStorage hasn't been read yet.
@@ -42,15 +58,5 @@ export function useAuth() {
   // read localStorage.
   const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
-  function login(t: string) {
-    try { localStorage.setItem(TOKEN_KEY, t); } catch {}
-    emit();
-  }
-
-  function logout() {
-    try { localStorage.removeItem(TOKEN_KEY); } catch {}
-    emit();
-  }
-
-  return { token, hydrated, login, logout };
+  return { token, hydrated, login: setToken, logout: clearToken };
 }
