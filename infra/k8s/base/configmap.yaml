@@ -4,6 +4,7 @@ metadata:
   name: blurt-config
   namespace: blurt
 data:
+  ENVIRONMENT: "production"
   DATABASE_URL: "postgresql+psycopg://blurt:blurt@postgres:5432/blurt"
   STORAGE_BACKEND: "s3"
   AUDIO_DIR: "/data/audio"

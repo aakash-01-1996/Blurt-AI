@@ -12,19 +12,26 @@ class StorageProvider(Protocol):
 
 class LocalDiskStorage:
     def __init__(self, base_dir: str) -> None:
-        self._base = Path(base_dir)
+        self._base = Path(base_dir).resolve()
+
+    def _resolve(self, key: str) -> Path:
+        """Resolve `key` to a path under the base directory."""
+        path = (self._base / key).resolve()
+        if path != self._base and self._base not in path.parents:
+            raise ValueError(f"invalid storage key: {key!r}")
+        return path
 
     def put(self, key: str, data: bytes, content_type: str) -> None:
-        path = self._base / key
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path = self._resolve(key)
         self._base.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
 
     def get(self, key: str) -> bytes:
-        return (self._base / key).read_bytes()
+        return self._resolve(key).read_bytes()
 
     def delete(self, key: str) -> None:
-        path = self._base / key
+        path = self._resolve(key)
         if path.exists():
             path.unlink()
 

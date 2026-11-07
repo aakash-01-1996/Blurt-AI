@@ -29,6 +29,16 @@ router = APIRouter(prefix="/api/v1", tags=["recordings"])
 
 MAX_BYTES = settings.max_upload_mb * 1024 * 1024
 MAX_DURATION_S = 10 * 60  # 10 minutes
+_READ_CHUNK = 1024 * 1024  # 1 MiB
+
+
+def _safe_ext(filename: str | None) -> str:
+    """Return a short alphanumeric file extension from a filename."""
+    if not filename or "." not in filename:
+        return "bin"
+    raw = filename.rsplit(".", 1)[-1].lower()
+    cleaned = "".join(c for c in raw if c.isalnum())
+    return cleaned[:8] if cleaned else "bin"
 
 
 class RecordingOut(BaseModel):
@@ -51,13 +61,18 @@ class RecordingListItem(BaseModel):
 
 @router.post("/recordings", status_code=status.HTTP_202_ACCEPTED, response_model=RecordingOut)
 async def upload_recording(file: UploadFile, user_id: CurrentUserId) -> Recording:
-    data = await file.read()
-
-    if len(data) > MAX_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds {settings.max_upload_mb} MB limit",
-        )
+    # Read in bounded chunks and enforce the size limit as we go.
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(_READ_CHUNK):
+        total += len(chunk)
+        if total > MAX_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File exceeds {settings.max_upload_mb} MB limit",
+            )
+        chunks.append(chunk)
+    data = b"".join(chunks)
 
     try:
         duration = probe_duration(data)
@@ -70,7 +85,7 @@ async def upload_recording(file: UploadFile, user_id: CurrentUserId) -> Recordin
             detail="Recording exceeds 10-minute limit",
         )
     recording_id = uuid.uuid4()
-    ext = (file.filename or "audio").rsplit(".", 1)[-1]
+    ext = _safe_ext(file.filename)
     storage_key = f"recordings/{user_id}/{recording_id}.{ext}"
 
     storage.put(storage_key, data, file.content_type or "application/octet-stream")
