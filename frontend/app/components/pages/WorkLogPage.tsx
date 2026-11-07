@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { WorkLogEntry } from "../../types";
+import { apiFetch } from "../../lib/api";
 import { formatDayLabel } from "../../lib/format";
 import { ShimmerBox, ShimmerText } from "../Shimmer";
 import { EntryCard } from "../worklog/EntryCard";
@@ -68,7 +69,7 @@ export function WorkLogPage({ token }: { token: string }) {
   const [period, setPeriod] = useState<Period>("week");
 
   const fetchEntries = useCallback(() => {
-    fetch("/api/v1/work-log", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/v1/work-log", token)
       .then((r) => r.json())
       .then((data) => { setEntries(data); setLoading(false); })
       .catch(() => setLoading(false));

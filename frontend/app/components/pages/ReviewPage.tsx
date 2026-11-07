@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Item, Recording } from "../../types";
+import { apiFetch } from "../../lib/api";
 import { deriveTimestamps } from "../../lib/derive";
 import { fmtTime } from "../../lib/format";
 import { ShimmerBox, ShimmerCard } from "../Shimmer";
@@ -15,7 +16,6 @@ interface ReviewPageProps {
 }
 
 export function ReviewPage({ token, onCountChange }: ReviewPageProps) {
-  const authHeader = { Authorization: `Bearer ${token}` };
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [itemsMap, setItemsMap] = useState<Record<string, Item[]>>({});
   const [loading, setLoading] = useState(true);
@@ -24,16 +24,15 @@ export function ReviewPage({ token, onCountChange }: ReviewPageProps) {
 
   useEffect(() => {
     let cancelled = false;
-    const auth = { Authorization: `Bearer ${token}` };
     async function fetchAll() {
-      const res = await fetch("/api/v1/recordings", { headers: auth }).then((r) => r.json()).catch(() => []);
+      const res = await apiFetch("/api/v1/recordings", token).then((r) => r.json()).catch(() => []);
       if (cancelled) return;
       const ready: Recording[] = (res as Recording[]).filter((r) => r.status === "ready");
       setRecordings(ready);
 
       const entries = await Promise.all(
         ready.map(async (r) => {
-          const items: Item[] = await fetch(`/api/v1/recordings/${r.id}/items`, { headers: auth })
+          const items: Item[] = await apiFetch(`/api/v1/recordings/${r.id}/items`, token)
             .then((res) => res.json()).catch(() => []);
           return [r.id, items] as [string, Item[]];
         })
@@ -89,9 +88,9 @@ export function ReviewPage({ token, onCountChange }: ReviewPageProps) {
 
   async function handleReview(itemId: string, action: "approve" | "reject") {
     if (!active) return;
-    const res = await fetch(`/api/v1/items/${itemId}/review`, {
+    const res = await apiFetch(`/api/v1/items/${itemId}/review`, token, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
     if (!res.ok) return;
@@ -104,9 +103,9 @@ export function ReviewPage({ token, onCountChange }: ReviewPageProps) {
 
   async function handlePatch(itemId: string, fields: Record<string, string>) {
     if (!active) return;
-    const res = await fetch(`/api/v1/items/${itemId}`, {
+    const res = await apiFetch(`/api/v1/items/${itemId}`, token, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeader },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields }),
     });
     if (!res.ok) return;

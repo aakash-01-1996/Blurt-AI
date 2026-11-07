@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { apiFetch } from "../lib/api";
 
 interface UseRecorderOptions {
   token: string;
@@ -70,9 +71,8 @@ export function useRecorder({ token, onUploaded }: UseRecorderOptions): UseRecor
     setUploading(true);
     setUploadError(null);
     try {
-      const res = await fetch("/api/v1/recordings", {
+      const res = await apiFetch("/api/v1/recordings", token, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
         body: form,
       });
       if (!res.ok) {

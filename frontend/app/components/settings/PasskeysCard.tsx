@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PasskeyCredential } from "../../types";
+import { apiFetch } from "../../lib/api";
 import { passkeysSupported, registerPasskey } from "../../lib/passkey";
 import { formatDayLabel } from "../../lib/format";
 
@@ -23,15 +24,13 @@ export function PasskeysCard({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
-    const res = await fetch("/api/v1/auth/passkey/credentials", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await apiFetch("/api/v1/auth/passkey/credentials", token);
     if (res.ok) setCreds(await res.json());
   }
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/v1/auth/passkey/credentials", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/v1/auth/passkey/credentials", token)
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => { if (!cancelled) setCreds(data); })
       .catch(() => {});
@@ -58,11 +57,14 @@ export function PasskeysCard({ token }: { token: string }) {
   async function remove(id: string) {
     const prev = creds;
     setCreds((c) => c.filter((x) => x.id !== id));
-    const res = await fetch(`/api/v1/auth/passkey/credentials/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) setCreds(prev);
+    try {
+      const res = await apiFetch(`/api/v1/auth/passkey/credentials/${id}`, token, {
+        method: "DELETE",
+      });
+      if (!res.ok) setCreds(prev);
+    } catch {
+      setCreds(prev);
+    }
   }
 
   return (

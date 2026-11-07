@@ -1,4 +1,5 @@
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import { apiFetch } from "./api";
 
 /** True when this browser can do WebAuthn at all. */
 export function passkeysSupported(): boolean {
@@ -34,18 +35,17 @@ export async function loginWithPasskey(email: string): Promise<string> {
 
 /** Register a new passkey for the signed-in user. */
 export async function registerPasskey(token: string, label?: string): Promise<void> {
-  const begin = await fetch("/api/v1/auth/passkey/register/begin", {
+  const begin = await apiFetch("/api/v1/auth/passkey/register/begin", token, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
   });
   if (!begin.ok) throw new Error(await detail(begin, "Could not start passkey registration"));
   const { options, challenge_token } = await begin.json();
 
   const credential = await startRegistration({ optionsJSON: options });
 
-  const complete = await fetch("/api/v1/auth/passkey/register/complete", {
+  const complete = await apiFetch("/api/v1/auth/passkey/register/complete", token, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ credential, challenge_token, label }),
   });
   if (!complete.ok) throw new Error(await detail(complete, "Passkey registration failed"));
