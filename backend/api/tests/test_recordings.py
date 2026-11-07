@@ -46,6 +46,26 @@ def test_upload_returns_recording(api_client: TestClient, monkeypatch: pytest.Mo
     assert body["id"]
 
 
+def test_upload_sanitizes_filename_extension(
+    api_client: TestClient, monkeypatch: pytest.MonkeyPatch, fake_storage: FakeStorage
+) -> None:
+    import blurt_api.routers.recordings as rec_module
+
+    monkeypatch.setattr(rec_module, "probe_duration", lambda data: 2.0)
+
+    # A filename containing path separators and dot segments.
+    r = api_client.post(
+        "/api/v1/recordings",
+        files={"file": ("a./../../../../tmp/pwned", b"audio-bytes", "audio/webm")},
+    )
+    assert r.status_code == 202, r.text
+
+    key = next(iter(fake_storage._store))
+    assert ".." not in key
+    ext = key.rsplit(".", 1)[-1]
+    assert ext.isalnum() and "/" not in ext
+
+
 def test_list_recordings_serializes_created_at(
     api_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
