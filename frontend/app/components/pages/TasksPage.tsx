@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Task } from "../../types";
+import { apiFetch } from "../../lib/api";
 import { ShimmerRow } from "../Shimmer";
 import { TaskRow } from "../tasks/TaskRow";
 
@@ -10,7 +11,7 @@ export function TasksPage({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/v1/tasks", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/v1/tasks", token)
       .then((r) => r.json())
       .then((data) => { setTasks(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -25,17 +26,21 @@ export function TasksPage({ token }: { token: string }) {
           : t
       )
     );
-    const res = await fetch(`/api/v1/tasks/${task.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status: next }),
-    });
-    if (!res.ok) {
+    try {
+      const res = await apiFetch(`/api/v1/tasks/${task.id}`, token, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) {
+        setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+        return;
+      }
+      const updated: Task = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+    } catch {
       setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
-      return;
     }
-    const updated: Task = await res.json();
-    setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
   }
 
   const open = tasks.filter((t) => t.status === "open");

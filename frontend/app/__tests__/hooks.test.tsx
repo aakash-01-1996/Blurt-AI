@@ -52,7 +52,7 @@ describe("useRecorder", () => {
 
     expect(global.fetch).toHaveBeenCalledWith("/api/v1/recordings", expect.objectContaining({ method: "POST" }));
     const init = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1];
-    expect(init.headers.Authorization).toBe("Bearer t");
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer t");
     expect(init.body).toBeInstanceOf(FormData);
     expect(onUploaded).toHaveBeenCalledTimes(1);
     expect(result.current.uploading).toBe(false);

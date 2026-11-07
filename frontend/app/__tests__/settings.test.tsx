@@ -19,12 +19,11 @@ describe("SettingsPage", () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ recordings: [] }) });
     render(<SettingsPage token="t" />);
     fireEvent.click(screen.getByRole("button", { name: "Export my data" }));
-    await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/v1/export",
-        expect.objectContaining({ headers: { Authorization: "Bearer t" } })
-      )
-    );
+    const calls = (global.fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock
+      .calls;
+    await waitFor(() => expect(calls.some(([url]) => url === "/api/v1/export")).toBe(true));
+    const exportCall = calls.find(([url]) => url === "/api/v1/export")!;
+    expect(new Headers(exportCall[1].headers).get("Authorization")).toBe("Bearer t");
   });
 
   it("surfaces an export error", async () => {

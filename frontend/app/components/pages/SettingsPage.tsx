@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiFetch } from "../../lib/api";
 import { PasskeysCard } from "../settings/PasskeysCard";
 
 export function SettingsPage({ token }: { token: string }) {
@@ -11,7 +12,7 @@ export function SettingsPage({ token }: { token: string }) {
     setExporting(true);
     setError(null);
     try {
-      const res = await fetch("/api/v1/export", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await apiFetch("/api/v1/export", token);
       if (!res.ok) {
         setError("Export failed — please try again.");
         return;

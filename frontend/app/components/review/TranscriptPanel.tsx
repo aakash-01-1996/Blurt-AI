@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Item, Recording, sectionTint } from "../../types";
+import { apiFetch } from "../../lib/api";
 import { fmtTime } from "../../lib/format";
 
 interface TranscriptPanelProps {
@@ -21,9 +22,7 @@ export function TranscriptPanel({ items, recording, token, timestamps }: Transcr
   useEffect(() => {
     let cancelled = false;
     if (!recording) return;
-    fetch(`/api/v1/recordings/${recording.id}/audio-url`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    apiFetch(`/api/v1/recordings/${recording.id}/audio-url`, token)
       .then((r) => r.json())
       .then((d) => {
         if (cancelled || !d?.url || !audioRef.current) return;

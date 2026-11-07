@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Item, Recording } from "../../types";
+import { apiFetch } from "../../lib/api";
 import { computeStreak } from "../../lib/derive";
 import { useRecorder } from "../../hooks/useRecorder";
 import { ShimmerRow } from "../Shimmer";
@@ -28,24 +29,22 @@ export function RecordPage({ token, onNavigateReview }: RecordPageProps) {
 
   async function handleDelete(id: string) {
     setRecordings((prev) => prev.filter((r) => r.id !== id));
-    await fetch(`/api/v1/recordings/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => setRefreshTick((n) => n + 1));
+    await apiFetch(`/api/v1/recordings/${id}`, token, { method: "DELETE" }).catch(() =>
+      setRefreshTick((n) => n + 1),
+    );
   }
 
   useEffect(() => {
-    const auth = { Authorization: `Bearer ${token}` };
     async function loadRecordings() {
       try {
-        const data: Recording[] = await fetch("/api/v1/recordings", { headers: auth }).then((r) => r.json());
+        const data: Recording[] = await apiFetch("/api/v1/recordings", token).then((r) => r.json());
         setRecordings(data);
         setRecordingsLoading(false);
 
         const ready = data.filter((r) => r.status === "ready");
         const entries = await Promise.all(
           ready.map(async (r) => {
-            const items: Item[] = await fetch(`/api/v1/recordings/${r.id}/items`, { headers: auth })
+            const items: Item[] = await apiFetch(`/api/v1/recordings/${r.id}/items`, token)
               .then((res) => res.json()).catch(() => []);
             const sections: Record<string, number> = {};
             for (const i of items) {

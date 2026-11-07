@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Note } from "../../types";
+import { apiFetch } from "../../lib/api";
 import { ShimmerRow } from "../Shimmer";
 import { NoteCard } from "../notes/NoteCard";
 
@@ -10,7 +11,7 @@ export function NotesPage({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/v1/notes", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/v1/notes", token)
       .then((r) => r.json())
       .then((data) => { setNotes(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -19,11 +20,12 @@ export function NotesPage({ token }: { token: string }) {
   async function remove(note: Note) {
     const prev = notes;
     setNotes((cur) => cur.filter((n) => n.id !== note.id));
-    const res = await fetch(`/api/v1/notes/${note.id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) setNotes(prev);
+    try {
+      const res = await apiFetch(`/api/v1/notes/${note.id}`, token, { method: "DELETE" });
+      if (!res.ok) setNotes(prev);
+    } catch {
+      setNotes(prev);
+    }
   }
 
   return (

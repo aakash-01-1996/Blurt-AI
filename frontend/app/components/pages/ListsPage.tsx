@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { List, ListItem } from "../../types";
+import { apiFetch } from "../../lib/api";
 import { ShimmerRow } from "../Shimmer";
 import { ListCard } from "../lists/ListCard";
 
@@ -10,7 +11,7 @@ export function ListsPage({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/v1/lists", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/v1/lists", token)
       .then((r) => r.json())
       .then((data) => { setLists(data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -25,12 +26,7 @@ export function ListsPage({ token }: { token: string }) {
           : l
       )
     );
-    const res = await fetch(`/api/v1/lists/${list.id}/items/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ checked: next }),
-    });
-    if (!res.ok) {
+    const rollback = () =>
       setLists((prev) =>
         prev.map((l) =>
           l.id === list.id
@@ -38,17 +34,27 @@ export function ListsPage({ token }: { token: string }) {
             : l
         )
       );
+    try {
+      const res = await apiFetch(`/api/v1/lists/${list.id}/items/${item.id}`, token, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checked: next }),
+      });
+      if (!res.ok) rollback();
+    } catch {
+      rollback();
     }
   }
 
   async function remove(list: List) {
     const prev = lists;
     setLists((cur) => cur.filter((l) => l.id !== list.id));
-    const res = await fetch(`/api/v1/lists/${list.id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) setLists(prev);
+    try {
+      const res = await apiFetch(`/api/v1/lists/${list.id}`, token, { method: "DELETE" });
+      if (!res.ok) setLists(prev);
+    } catch {
+      setLists(prev);
+    }
   }
 
   return (
