@@ -99,6 +99,46 @@ def test_handle_split_creates_items_and_enqueues_route(session: Session) -> None
     assert recording.status == RecordingStatus.routing
 
 
+def test_handle_split_empty_llm_response_falls_back_to_whole_transcript(
+    session: Session,
+) -> None:
+    from blurt_worker.handlers import split as mod
+
+    recording = _seed_recording(session)
+    session.add(
+        Transcript(
+            recording_id=recording.id,
+            text="Just a quick note.",
+            segments=[],
+            provider="groq",
+            model="whisper-large-v3-turbo",
+        )
+    )
+    session.flush()
+
+    mock_llm = MagicMock()
+    mock_llm.chat.return_value = ""  # the prod failure: empty content, not JSON
+
+    job = _make_job("split", {"recording_id": str(recording.id)})
+    with (
+        patch.object(mod, "llm", mock_llm),
+        patch("blurt_worker.handlers.split.get_session") as mock_gs,
+    ):
+
+        @contextmanager
+        def _fake_gs() -> Generator[Session, None, None]:
+            yield session
+
+        mock_gs.side_effect = _fake_gs
+        mod.handle_split(job)  # must NOT raise
+
+    items = session.query(Item).filter_by(recording_id=recording.id).all()
+    assert len(items) == 1
+    assert items[0].span_text == "Just a quick note."
+    session.refresh(recording)
+    assert recording.status == RecordingStatus.routing
+
+
 # ── route ─────────────────────────────────────────────────────────────────────
 
 
@@ -163,6 +203,34 @@ def test_handle_route_skip_rejects_item(session: Session) -> None:
 
         mock_gs.side_effect = _fake_gs
         mod.handle_route(job)
+
+    session.refresh(item)
+    assert item.status == ItemStatus.rejected
+
+
+def test_handle_route_unparseable_response_rejects_item(session: Session) -> None:
+    from blurt_worker.handlers import route as mod
+
+    recording = _seed_recording(session)
+    item = Item(recording_id=recording.id, section="unknown", span_text="um yeah")
+    session.add(item)
+    session.flush()
+
+    mock_llm = MagicMock()
+    mock_llm.chat.return_value = ""  # empty / non-JSON from the model
+
+    job = _make_job("route", {"recording_id": str(recording.id), "item_id": str(item.id)})
+    with (
+        patch.object(mod, "llm", mock_llm),
+        patch("blurt_worker.handlers.route.get_session") as mock_gs,
+    ):
+
+        @contextmanager
+        def _fake_gs() -> Generator[Session, None, None]:
+            yield session
+
+        mock_gs.side_effect = _fake_gs
+        mod.handle_route(job)  # must NOT raise
 
     session.refresh(item)
     assert item.status == ItemStatus.rejected
