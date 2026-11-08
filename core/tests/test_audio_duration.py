@@ -34,9 +34,50 @@ def _make_wav(seconds: float) -> bytes:
         path.unlink(missing_ok=True)
 
 
+def _make_video(seconds: float) -> bytes:
+    with tempfile.NamedTemporaryFile(suffix=".mpg", delete=False) as f:
+        path = Path(f.name)
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                f"testsrc=duration={seconds}:size=128x128:rate=25",
+                str(path),
+            ],
+            capture_output=True,
+            check=True,
+        )
+        return path.read_bytes()
+    finally:
+        path.unlink(missing_ok=True)
+
+
 @needs_ffmpeg
 def test_probe_duration_reads_normal_file() -> None:
     assert abs(audio.probe_duration(_make_wav(1.0)) - 1.0) < 0.3
+
+
+@needs_ffmpeg
+def test_probe_media_kind_audio_only() -> None:
+    has_audio, has_video = audio.probe_media_kind(_make_wav(1.0))
+    assert has_audio is True
+    assert has_video is False
+
+
+@needs_ffmpeg
+def test_probe_media_kind_detects_video() -> None:
+    has_audio, has_video = audio.probe_media_kind(_make_video(1.0))
+    assert has_video is True
+
+
+@needs_ffmpeg
+def test_probe_media_kind_rejects_non_media() -> None:
+    with pytest.raises(audio.AudioError):
+        audio.probe_media_kind(b"%PDF-1.4 not real media")
 
 
 @needs_ffmpeg

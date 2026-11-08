@@ -14,6 +14,9 @@ def fake_storage(monkeypatch: pytest.MonkeyPatch) -> FakeStorage:
     import blurt_api.routers.recordings as rec_module
 
     monkeypatch.setattr(rec_module, "storage", fs)
+    # Treat the fake upload bytes as valid audio by default; the media-type test
+    # overrides this.
+    monkeypatch.setattr(rec_module, "probe_media_kind", lambda data: (True, False))
     return fs
 
 
@@ -66,6 +69,34 @@ def test_upload_sanitizes_filename_extension(
     assert ".." not in key
     ext = key.rsplit(".", 1)[-1]
     assert ext.isalnum() and "/" not in ext
+
+
+def test_upload_rejects_video_file(api_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    import blurt_api.routers.recordings as rec_module
+
+    monkeypatch.setattr(rec_module, "probe_media_kind", lambda data: (True, True))
+    r = api_client.post(
+        "/api/v1/recordings",
+        files={"file": ("clip.mp4", b"video-bytes", "video/mp4")},
+    )
+    assert r.status_code == 415, r.text
+
+
+def test_upload_rejects_non_media_file(
+    api_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import blurt_api.routers.recordings as rec_module
+    from blurt_core.audio import AudioError
+
+    def _raise(data: bytes) -> tuple[bool, bool]:
+        raise AudioError("unreadable media")
+
+    monkeypatch.setattr(rec_module, "probe_media_kind", _raise)
+    r = api_client.post(
+        "/api/v1/recordings",
+        files={"file": ("doc.pdf", b"%PDF-1.4 ...", "application/pdf")},
+    )
+    assert r.status_code == 415, r.text
 
 
 def test_upload_enforces_per_user_quota(monkeypatch: pytest.MonkeyPatch) -> None:

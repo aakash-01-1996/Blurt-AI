@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from blurt_core.audio import AudioError, probe_duration
+from blurt_core.audio import AudioError, probe_duration, probe_media_kind
 from blurt_core.config import settings
 from blurt_core.db.models import (
     Correction,
@@ -111,6 +111,20 @@ async def upload_recording(file: UploadFile, user_id: CurrentUserId) -> Recordin
             )
         chunks.append(chunk)
     data = b"".join(chunks)
+
+    # Accept audio only — reject video files and non-media (documents, images).
+    try:
+        has_audio, has_video = probe_media_kind(data)
+    except AudioError:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Unsupported file — please upload an audio file.",
+        )
+    if has_video or not has_audio:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Only audio files are accepted (no video or documents).",
+        )
 
     try:
         duration = probe_duration(data)
