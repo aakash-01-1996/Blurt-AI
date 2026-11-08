@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import sys
 from contextvars import ContextVar
 from typing import Any
@@ -12,6 +13,20 @@ recording_id_var: ContextVar[str] = ContextVar("recording_id", default="")
 
 POD_NAME = os.environ.get("POD_NAME", "local")
 
+# Redact credentials that can appear in log messages — most importantly the
+# audio token in `GET /audio/...?token=...` access-log lines (the main auth JWT
+# rides in the Authorization header and is never logged).
+_REDACT_PATTERNS = [
+    re.compile(r"(token=)[^&\s\"']+"),
+    re.compile(r"(Bearer\s+)[A-Za-z0-9._\-]+"),
+]
+
+
+def _redact(text: str) -> str:
+    for pattern in _REDACT_PATTERNS:
+        text = pattern.sub(r"\1REDACTED", text)
+    return text
+
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -19,7 +34,7 @@ class JsonFormatter(logging.Formatter):
             "time": self.formatTime(record, self.datefmt),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": _redact(record.getMessage()),
             "pod": POD_NAME,
         }
         if rid := request_id_var.get():
@@ -57,7 +72,7 @@ class JsonFormatter(logging.Formatter):
         }
         for key, val in record.__dict__.items():
             if key not in _STANDARD_KEYS:
-                log[key] = val
+                log[key] = _redact(val) if isinstance(val, str) else val
         return json.dumps(log)
 
 
@@ -69,3 +84,11 @@ def configure_logging(level: str = "INFO") -> None:
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
+
+    # Route uvicorn's loggers (notably uvicorn.access, which logs request URLs
+    # with query strings) through our handler so they're JSON-formatted and
+    # redacted rather than printing raw tokens.
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        lg = logging.getLogger(name)
+        lg.handlers.clear()
+        lg.propagate = True
