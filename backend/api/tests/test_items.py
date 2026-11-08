@@ -66,6 +66,27 @@ def test_list_items_returns_items_for_recording(
     assert data[0]["end_s"] == 4.0
 
 
+def test_restore_rejected_item_returns_to_pending(
+    api_client: TestClient, db_session: Session
+) -> None:
+    recording_id = _seed_recording(db_session)
+    item_id = _seed_item(db_session, recording_id, status=ItemStatus.rejected)
+    db_session.commit()
+
+    r = api_client.post(f"/api/v1/items/{item_id}/restore")
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "pending"
+
+
+def test_restore_rejects_non_rejected_item(api_client: TestClient, db_session: Session) -> None:
+    recording_id = _seed_recording(db_session)
+    item_id = _seed_item(db_session, recording_id, status=ItemStatus.pending)
+    db_session.commit()
+
+    r = api_client.post(f"/api/v1/items/{item_id}/restore")
+    assert r.status_code == 409, r.text
+
+
 def test_list_items_returns_empty_list_for_no_items(
     api_client: TestClient, db_session: Session
 ) -> None:

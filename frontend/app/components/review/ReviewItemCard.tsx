@@ -11,10 +11,18 @@ interface ReviewItemCardProps {
   ts: number;
   onReview: (id: string, action: "approve" | "reject") => void;
   onPatch: (id: string, fields: Record<string, string>) => Promise<void>;
+  onRestore: (id: string) => void;
   onDismiss: (id: string) => void;
 }
 
-export function ReviewItemCard({ item, ts, onReview, onPatch, onDismiss }: ReviewItemCardProps) {
+export function ReviewItemCard({
+  item,
+  ts,
+  onReview,
+  onPatch,
+  onRestore,
+  onDismiss,
+}: ReviewItemCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -207,6 +215,18 @@ export function ReviewItemCard({ item, ts, onReview, onPatch, onDismiss }: Revie
       {reviewed && item.status === "approved" && !editing && (
         <button onClick={startEdit} className="text-sm text-gray-400 hover:text-gray-600 transition self-start">
           Edit
+        </button>
+      )}
+      {reviewed && rejected && (
+        <button
+          onClick={() => onRestore(item.id)}
+          className="flex items-center gap-1.5 text-sm font-bold text-[#0071E3] hover:underline underline-offset-2 self-start"
+        >
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M3.5 5.5A4 4 0 1 1 2.8 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            <path d="M1.5 2.5v3h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Reconsider
         </button>
       )}
     </div>

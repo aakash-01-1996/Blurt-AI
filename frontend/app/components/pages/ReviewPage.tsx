@@ -101,6 +101,17 @@ export function ReviewPage({ token, onCountChange }: ReviewPageProps) {
     }));
   }
 
+  async function handleRestore(itemId: string) {
+    if (!active) return;
+    const res = await apiFetch(`/api/v1/items/${itemId}/restore`, token, { method: "POST" });
+    if (!res.ok) return;
+    const updated: Item = await res.json();
+    setItemsMap((prev) => ({
+      ...prev,
+      [active.id]: (prev[active.id] ?? []).map((i) => (i.id === itemId ? updated : i)),
+    }));
+  }
+
   async function handlePatch(itemId: string, fields: Record<string, string>) {
     if (!active) return;
     const res = await apiFetch(`/api/v1/items/${itemId}`, token, {
@@ -167,6 +178,7 @@ export function ReviewPage({ token, onCountChange }: ReviewPageProps) {
                   ts={timestamps[item.id] ?? 0}
                   onReview={handleReview}
                   onPatch={handlePatch}
+                  onRestore={handleRestore}
                   onDismiss={(id) => setDismissed((prev) => new Set(prev).add(id))}
                 />
               ))
