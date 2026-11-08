@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { apiFetch } from "../../lib/api";
 import { PasskeysCard } from "../settings/PasskeysCard";
+import { DeleteAccountCard } from "../settings/DeleteAccountCard";
 
 export function SettingsPage({ token }: { token: string }) {
   const [exporting, setExporting] = useState(false);
@@ -59,6 +60,8 @@ export function SettingsPage({ token }: { token: string }) {
         To delete a recording and everything derived from it, use the trash icon next to it on the
         Record screen.
       </p>
+
+      <DeleteAccountCard token={token} />
     </div>
   );
 }
