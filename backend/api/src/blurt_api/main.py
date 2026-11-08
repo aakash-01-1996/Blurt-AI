@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import Response
 from sqlalchemy import text
 
+from blurt_api.routers.account import router as account_router
 from blurt_api.routers.auth import router as auth_router
 from blurt_api.routers.export import router as export_router
 from blurt_api.routers.items import router as items_router
@@ -22,6 +23,7 @@ configure_logging()
 
 app = FastAPI(title="Blurt API")
 app.include_router(auth_router)
+app.include_router(account_router)
 app.include_router(passkey_router)
 app.include_router(recordings_router)
 app.include_router(items_router)
