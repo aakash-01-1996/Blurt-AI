@@ -34,6 +34,10 @@ FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
+# ffmpeg/ffprobe — the upload endpoint probes audio duration and stream type
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --shell /bin/bash blurt
 
 COPY --from=builder --chown=blurt:blurt /app/.venv /app/.venv
