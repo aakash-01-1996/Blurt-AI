@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     s3_secret_access_key: str = ""
     audio_retention_days: int = 14
     max_upload_mb: int = 25
+    # Per-user limits on recording creation, to stop one account from draining
+    # the shared STT/LLM quota (each recording fans out to several provider
+    # calls). 0 disables a given limit.
+    max_recordings_per_minute: int = 10
+    max_recordings_per_day: int = 100
 
     # STT
     stt_provider: str = "mlx"
