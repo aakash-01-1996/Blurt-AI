@@ -1,3 +1,5 @@
+import uuid
+
 import blurt_api.deps as deps
 import pytest
 from blurt_core.providers.storage import FakeStorage
@@ -64,6 +66,35 @@ def test_upload_sanitizes_filename_extension(
     assert ".." not in key
     ext = key.rsplit(".", 1)[-1]
     assert ext.isalnum() and "/" not in ext
+
+
+def test_upload_enforces_per_user_quota(monkeypatch: pytest.MonkeyPatch) -> None:
+    import blurt_api.routers.recordings as rec_module
+    from blurt_api.main import app
+
+    monkeypatch.setattr(rec_module, "probe_duration", lambda data: 1.0)
+    # Tight limit so the test is fast; fresh user so the count starts at zero.
+    monkeypatch.setattr(rec_module.settings, "max_recordings_per_minute", 2)
+
+    client = TestClient(app)
+    signup = client.post(
+        "/api/v1/auth/signup",
+        json={"email": f"quota-{uuid.uuid4()}@blurt.dev", "password": "password123"},
+    )
+    assert signup.status_code == 201, signup.text
+    headers = {"Authorization": f"Bearer {signup.json()['access_token']}"}
+
+    def upload() -> int:
+        return client.post(
+            "/api/v1/recordings",
+            files={"file": ("rec.webm", b"audio-bytes", "audio/webm")},
+            headers=headers,
+        ).status_code
+
+    assert upload() == 202
+    assert upload() == 202
+    # Third within the window is rejected, not processed.
+    assert upload() == 429
 
 
 def test_list_recordings_serializes_created_at(

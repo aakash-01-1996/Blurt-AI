@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from blurt_core.audio import AudioError, probe_duration
 from blurt_core.config import settings
@@ -20,7 +20,8 @@ from blurt_core.queue import enqueue
 from fastapi import APIRouter, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import Session
 
 from blurt_api.auth import CurrentUserId, create_audio_token, verify_audio_token
 from blurt_api.deps import storage
@@ -30,6 +31,40 @@ router = APIRouter(prefix="/api/v1", tags=["recordings"])
 MAX_BYTES = settings.max_upload_mb * 1024 * 1024
 MAX_DURATION_S = 10 * 60  # 10 minutes
 _READ_CHUNK = 1024 * 1024  # 1 MiB
+
+
+def _recordings_since(session: Session, user_id: uuid.UUID, since: datetime) -> int:
+    return session.execute(
+        select(func.count())
+        .select_from(Recording)
+        .where(Recording.user_id == user_id, Recording.created_at >= since)
+    ).scalar_one()
+
+
+def _enforce_recording_quota(user_id: uuid.UUID) -> None:
+    """Reject the upload if the user is over their per-minute or per-day limit.
+
+    Each recording triggers the full pipeline (several STT/LLM calls), so this
+    caps how fast a single account can consume the shared provider quota.
+    """
+    now = datetime.now(UTC)
+    with get_session() as session:
+        if settings.max_recordings_per_minute > 0:
+            recent = _recordings_since(session, user_id, now - timedelta(minutes=1))
+            if recent >= settings.max_recordings_per_minute:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many recordings in a short time — please wait a moment.",
+                    headers={"Retry-After": "60"},
+                )
+        if settings.max_recordings_per_day > 0:
+            today = _recordings_since(session, user_id, now - timedelta(days=1))
+            if today >= settings.max_recordings_per_day:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Daily recording limit reached — please try again tomorrow.",
+                    headers={"Retry-After": "3600"},
+                )
 
 
 def _safe_ext(filename: str | None) -> str:
@@ -61,6 +96,9 @@ class RecordingListItem(BaseModel):
 
 @router.post("/recordings", status_code=status.HTTP_202_ACCEPTED, response_model=RecordingOut)
 async def upload_recording(file: UploadFile, user_id: CurrentUserId) -> Recording:
+    # Reject over-quota users before doing any work (read, probe, store).
+    _enforce_recording_quota(user_id)
+
     # Read in bounded chunks and enforce the size limit as we go.
     chunks: list[bytes] = []
     total = 0
