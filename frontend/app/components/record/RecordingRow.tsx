@@ -19,9 +19,17 @@ interface RecordingRowProps {
   meta: RecMeta | null;
   onReview: (id: string) => void;
   onDelete: (id: string) => void;
+  onRetry: (id: string) => void;
 }
 
-export function RecordingRow({ recording, number, meta, onReview, onDelete }: RecordingRowProps) {
+export function RecordingRow({
+  recording,
+  number,
+  meta,
+  onReview,
+  onDelete,
+  onRetry,
+}: RecordingRowProps) {
   const timeLabel = formatDateTimeLabel(new Date(recording.created_at));
   const dur = formatDuration(recording.duration_s);
   const descriptor = meta?.firstSpan ? truncate(meta.firstSpan, 38) : null;
@@ -73,9 +81,17 @@ export function RecordingRow({ recording, number, meta, onReview, onDelete }: Re
           </span>
         )}
         {recording.status === "failed" && (
-          <span className="text-sm font-medium px-3 py-1.5 rounded-full bg-red-100 text-red-700">
-            Failed
-          </span>
+          <>
+            <span className="text-sm font-medium px-3 py-1.5 rounded-full bg-red-100 text-red-700">
+              Failed
+            </span>
+            <button
+              onClick={() => onRetry(recording.id)}
+              className="text-sm font-bold px-4 py-2 rounded-xl border border-[#E5E5EA] text-[#1D1D1F] hover:bg-raised transition"
+            >
+              Retry
+            </button>
+          </>
         )}
         <button
           onClick={() => {

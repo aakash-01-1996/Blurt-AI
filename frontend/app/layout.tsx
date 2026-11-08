@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Blurt",
+  title: "Blurt-AI",
   description: "Just blurt it. We'll sort it.",
 };
 

@@ -34,6 +34,17 @@ export function RecordPage({ token, onNavigateReview }: RecordPageProps) {
     );
   }
 
+  async function handleRetry(id: string) {
+    // Optimistically flip to processing; the poll will track the real status.
+    setRecordings((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "transcribing" } : r)),
+    );
+    await apiFetch(`/api/v1/recordings/${id}/retry`, token, { method: "POST" }).catch(() =>
+      setRefreshTick((n) => n + 1),
+    );
+    setRefreshTick((n) => n + 1);
+  }
+
   useEffect(() => {
     async function loadRecordings() {
       try {
@@ -132,6 +143,7 @@ export function RecordPage({ token, onNavigateReview }: RecordPageProps) {
               meta={metaMap[r.id] ?? null}
               onReview={onNavigateReview}
               onDelete={handleDelete}
+              onRetry={handleRetry}
             />
           ))}
         </div>

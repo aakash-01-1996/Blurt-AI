@@ -36,10 +36,20 @@ CLAUDE.md
 *.pdf
 
 # Claude Code local settings
-.claude/settings.local.json
+.claude/
+
+# VS Code local run configs (kept local, never pushed)
+.vscode/
+
+# coverage artifact
+.coverage
+
+# local screenshots (root only, never committed)
+/*.png
 
 # eval run artifacts
 evals/reports/
 
 # local working notes (never pushed)
 /BACKLOG.md
+/DEPLOY.md

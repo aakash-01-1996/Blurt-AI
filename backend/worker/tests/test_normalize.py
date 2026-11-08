@@ -65,7 +65,16 @@ def test_handle_normalize_stores_flac_and_enqueues_transcribe(session: Session) 
     except KeyError:
         pass
 
-    transcribe_job = session.query(Job).filter_by(kind="transcribe").one()
+    # Scope to this recording — a shared test DB may hold transcribe jobs that
+    # other tests (e.g. the API retry endpoint) committed.
+    transcribe_job = (
+        session.query(Job)
+        .filter(
+            Job.kind == "transcribe",
+            Job.payload["recording_id"].astext == str(recording.id),
+        )
+        .one()
+    )
     payload = transcribe_job.payload
     if isinstance(payload, str):
         import json

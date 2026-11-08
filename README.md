@@ -2,7 +2,7 @@
 Blurt-AI turns voice notes into organized and reviewable records.
 
 ## Snapshots
-<img src="image-1.png" alt="Homepage" width="720" />
+<img src="frontend/assets/image-1.png" alt="Homepage" width="720" />
 
 ## Architecture
 

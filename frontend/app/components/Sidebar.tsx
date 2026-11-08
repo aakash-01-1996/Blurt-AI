@@ -93,9 +93,13 @@ export function Sidebar({ activePage, onNavigate, reviewCount, onLogout }: Sideb
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-[10px] bg-[#0071E3] flex items-center justify-center">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="2" y="3" width="2.6" height="10" rx="1.3" fill="white" />
-              <rect x="6.7" y="5.5" width="2.6" height="7.5" rx="1.3" fill="white" />
-              <rect x="11.4" y="4.2" width="2.6" height="8.8" rx="1.3" fill="white" />
+              <rect x="1.0" y="6.0" width="1.3" height="4" rx="0.65" fill="white" />
+              <rect x="3.1" y="4.5" width="1.3" height="7" rx="0.65" fill="white" />
+              <rect x="5.2" y="3.0" width="1.3" height="10" rx="0.65" fill="white" />
+              <rect x="7.3" y="1.5" width="1.3" height="13" rx="0.65" fill="white" />
+              <rect x="9.4" y="3.0" width="1.3" height="10" rx="0.65" fill="white" />
+              <rect x="11.5" y="4.5" width="1.3" height="7" rx="0.65" fill="white" />
+              <rect x="13.6" y="6.0" width="1.3" height="4" rx="0.65" fill="white" />
             </svg>
           </div>
           <span className="font-display text-xl font-bold text-[#1D1D1F]">blurt</span>

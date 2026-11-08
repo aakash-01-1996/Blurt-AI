@@ -99,6 +99,33 @@ def review_item(item_id: uuid.UUID, body: ReviewRequest, user_id: CurrentUserId)
         return item
 
 
+@router.post("/items/{item_id}/restore", response_model=ItemOut)
+def restore_item(item_id: uuid.UUID, user_id: CurrentUserId) -> Item:
+    """Undo a rejection — put a rejected item back to pending.
+
+    Only works on a rejected item (rejecting creates no derived rows, so there's
+    nothing to unwind). Approved items are not restorable here, since undoing an
+    approval would have to delete the task/note/list it created.
+    """
+    with get_session() as session:
+        item = session.get(Item, item_id)
+        recording = session.get(Recording, item.recording_id) if item else None
+        if item is None or recording is None or recording.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+
+        if item.status != ItemStatus.rejected:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only a rejected item can be restored",
+            )
+
+        item.status = ItemStatus.pending
+        item.reviewed_at = None
+        session.flush()
+        session.expunge(item)
+        return item
+
+
 def _create_work_log_entry(session: object, item: Item) -> None:
     from sqlalchemy.orm import Session as SASession
 

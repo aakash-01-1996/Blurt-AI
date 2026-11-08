@@ -89,7 +89,11 @@ def test_handle_transcribe_writes_transcript(session: Session) -> None:
     session.refresh(recording)
     assert recording.status == RecordingStatus.splitting
 
-    split_job = session.query(Job).filter_by(kind="split").one()
+    split_job = (
+        session.query(Job)
+        .filter(Job.kind == "split", Job.payload["recording_id"].astext == str(recording.id))
+        .one()
+    )
     payload = (
         json.loads(split_job.payload) if isinstance(split_job.payload, str) else split_job.payload
     )

@@ -76,7 +76,7 @@ describe("ReviewFilters", () => {
 });
 
 describe("ReviewItemCard", () => {
-  const noop = { onReview: vi.fn(), onPatch: vi.fn(), onDismiss: vi.fn() };
+  const noop = { onReview: vi.fn(), onPatch: vi.fn(), onRestore: vi.fn(), onDismiss: vi.fn() };
 
   it("renders the title, confidence and approve action", () => {
     render(<ReviewItemCard item={mkItem()} ts={3} {...noop} />);
@@ -104,6 +104,13 @@ describe("ReviewItemCard", () => {
     expect(onReview).toHaveBeenCalledWith("i1", "approve");
     fireEvent.click(screen.getByText("Reject"));
     expect(onReview).toHaveBeenCalledWith("i1", "reject");
+  });
+
+  it("offers Reconsider on a rejected item", () => {
+    const onRestore = vi.fn();
+    render(<ReviewItemCard item={mkItem({ status: "rejected" })} ts={0} {...noop} onRestore={onRestore} />);
+    fireEvent.click(screen.getByText("Reconsider"));
+    expect(onRestore).toHaveBeenCalledWith("i1");
   });
 
   it("edits fields through the inline form", async () => {
