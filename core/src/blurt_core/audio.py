@@ -1,3 +1,4 @@
+import json
 import re
 import subprocess
 import tempfile
@@ -8,6 +9,37 @@ _TIME_RE = re.compile(r"time=(\d+):(\d+):(\d+(?:\.\d+)?)")
 
 class AudioError(Exception):
     pass
+
+
+def probe_media_kind(data: bytes) -> tuple[bool, bool]:
+    """Inspect the uploaded bytes and return ``(has_audio, has_video)``.
+
+    Used to accept audio-only uploads and reject video files and non-media
+    (documents, images). A cover-art / thumbnail video stream (``attached_pic``)
+    is not counted as video, so an audio file with embedded album art is fine.
+    Raises AudioError if the bytes aren't decodable media at all.
+    """
+    with tempfile.NamedTemporaryFile(suffix=".media") as f:
+        f.write(data)
+        f.flush()
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-print_format", "json", "-show_streams", f.name],
+            capture_output=True,
+            text=True,
+        )
+    if result.returncode != 0:
+        raise AudioError(f"unreadable media: {result.stderr.strip()}")
+    try:
+        streams = json.loads(result.stdout).get("streams", [])
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise AudioError("could not parse media streams") from exc
+
+    has_audio = any(s.get("codec_type") == "audio" for s in streams)
+    has_video = any(
+        s.get("codec_type") == "video" and (s.get("disposition") or {}).get("attached_pic", 0) != 1
+        for s in streams
+    )
+    return has_audio, has_video
 
 
 def _decode_duration(path: str) -> float | None:

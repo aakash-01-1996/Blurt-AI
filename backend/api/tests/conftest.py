@@ -82,6 +82,16 @@ def _patch_api_db(monkeypatch: pytest.MonkeyPatch, test_engine: Engine) -> None:
     monkeypatch.setattr(work_log_mod, "get_session", _test_get_session)
 
 
+@pytest.fixture(autouse=True)
+def _disable_recording_quota(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Per-user recording quotas are a production safety feature; disable them by
+    default so unrelated tests aren't throttled. The quota test opts back in."""
+    from blurt_core.config import settings
+
+    monkeypatch.setattr(settings, "max_recordings_per_minute", 0)
+    monkeypatch.setattr(settings, "max_recordings_per_day", 0)
+
+
 # Fixed test user ID (matches seed migration for legacy tests)
 TEST_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
