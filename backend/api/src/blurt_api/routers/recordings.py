@@ -186,6 +186,49 @@ def get_recording(recording_id: uuid.UUID, user_id: CurrentUserId) -> Recording:
         return recording
 
 
+@router.post("/recordings/{recording_id}/retry", response_model=RecordingOut)
+def retry_recording(recording_id: uuid.UUID, user_id: CurrentUserId) -> Recording:
+    """Re-run the pipeline for a failed recording.
+
+    Clears any partial artifacts from the failed run (transcript + items) and
+    re-enqueues from the right stage — transcribe if the audio was already
+    normalized to FLAC, else normalize. Only a failed recording can be retried;
+    the audio file is retained on failure, so nothing needs re-uploading.
+    """
+    with get_session() as session:
+        recording = session.get(Recording, recording_id)
+        if recording is None or recording.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Recording not found")
+        if recording.status != RecordingStatus.failed:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only a failed recording can be retried",
+            )
+
+        # A failed recording was never approved, so there are no derived rows
+        # (tasks/notes/lists/work-log) — just clear items, their corrections and
+        # the transcript so the re-run starts clean.
+        item_ids = list(
+            session.execute(select(Item.id).where(Item.recording_id == recording_id)).scalars()
+        )
+        if item_ids:
+            session.execute(delete(Correction).where(Correction.item_id.in_(item_ids)))
+            session.execute(delete(Item).where(Item.recording_id == recording_id))
+        session.execute(delete(Transcript).where(Transcript.recording_id == recording_id))
+
+        recording.error = None
+        if recording.storage_key.endswith(".flac"):
+            recording.status = RecordingStatus.transcribing
+            kind = "transcribe"
+        else:
+            recording.status = RecordingStatus.normalizing
+            kind = "normalize"
+        session.flush()
+        enqueue(session, kind, {"recording_id": str(recording_id)})
+        session.expunge(recording)
+        return recording
+
+
 @router.delete("/recordings/{recording_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_recording(recording_id: uuid.UUID, user_id: CurrentUserId) -> None:
     """Delete a recording and everything derived from it (items, tasks, work-log

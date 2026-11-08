@@ -71,6 +71,74 @@ def test_upload_sanitizes_filename_extension(
     assert ext.isalnum() and "/" not in ext
 
 
+def test_retry_failed_recording(api_client: TestClient, db_session) -> None:  # type: ignore[no-untyped-def]
+    import uuid as _uuid
+
+    from blurt_core.db.models import (
+        Item,
+        ItemStatus,
+        Job,
+        Recording,
+        RecordingStatus,
+        Transcript,
+        User,
+    )
+    from sqlalchemy import func, select
+
+    uid = _uuid.UUID("00000000-0000-0000-0000-000000000001")
+    if not db_session.get(User, uid):
+        db_session.add(User(id=uid, email="test@blurt.dev", password_hash="x"))
+    rec = Recording(
+        user_id=uid,
+        storage_key="recs/x.flac",
+        mime_type="audio/flac",
+        status=RecordingStatus.failed,
+        error="boom",
+    )
+    db_session.add(rec)
+    db_session.flush()
+    rid = rec.id
+    db_session.add(Transcript(recording_id=rid, text="t", segments=[], provider="p", model="m"))
+    db_session.add(Item(recording_id=rid, section="task", status=ItemStatus.pending, span_text="x"))
+    db_session.commit()
+
+    r = api_client.post(f"/api/v1/recordings/{rid}/retry")
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "transcribing"
+
+    db_session.expire_all()
+    for model in (Transcript, Item):
+        n = db_session.execute(
+            select(func.count()).select_from(model).where(model.recording_id == rid)
+        ).scalar_one()
+        assert n == 0, f"{model.__name__} not cleared"
+    jobs = db_session.execute(select(Job).where(Job.kind == "transcribe")).scalars().all()
+    assert any(j.payload.get("recording_id") == str(rid) for j in jobs)
+
+
+def test_retry_rejects_non_failed_recording(api_client: TestClient, db_session) -> None:  # type: ignore[no-untyped-def]
+    import uuid as _uuid
+
+    from blurt_core.db.models import Recording, RecordingStatus, User
+
+    uid = _uuid.UUID("00000000-0000-0000-0000-000000000001")
+    if not db_session.get(User, uid):
+        db_session.add(User(id=uid, email="test@blurt.dev", password_hash="x"))
+    rec = Recording(
+        user_id=uid,
+        storage_key="recs/y.flac",
+        mime_type="audio/flac",
+        status=RecordingStatus.ready,
+    )
+    db_session.add(rec)
+    db_session.flush()
+    rid = rec.id
+    db_session.commit()
+
+    r = api_client.post(f"/api/v1/recordings/{rid}/retry")
+    assert r.status_code == 409, r.text
+
+
 def test_upload_rejects_video_file(api_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     import blurt_api.routers.recordings as rec_module
 

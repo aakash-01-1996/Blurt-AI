@@ -121,32 +121,32 @@ describe("RecordingRow", () => {
   const rec: Recording = { id: "r1", status: "ready", duration_s: 41, created_at: new Date().toISOString() };
 
   it("labels the recording by number", () => {
-    render(<RecordingRow recording={rec} number={3} meta={null} onReview={vi.fn()} onDelete={vi.fn()} />);
+    render(<RecordingRow recording={rec} number={3} meta={null} onReview={vi.fn()} onDelete={vi.fn()} onRetry={vi.fn()} />);
     expect(screen.getByText("Recording 3")).toBeInTheDocument();
   });
 
   it("offers review when items are pending", () => {
     const onReview = vi.fn();
-    render(<RecordingRow recording={rec} number={1} meta={{ pending: 5, kept: 0, firstSpan: "hi", sections: {} }} onReview={onReview} onDelete={vi.fn()} />);
+    render(<RecordingRow recording={rec} number={1} meta={{ pending: 5, kept: 0, firstSpan: "hi", sections: {} }} onReview={onReview} onDelete={vi.fn()} onRetry={vi.fn()} />);
     expect(screen.getByText("5 items to review")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Review"));
     expect(onReview).toHaveBeenCalledWith("r1");
   });
 
   it("shows a kept summary once reviewed", () => {
-    render(<RecordingRow recording={rec} number={1} meta={{ pending: 0, kept: 7, firstSpan: null, sections: {} }} onReview={vi.fn()} onDelete={vi.fn()} />);
+    render(<RecordingRow recording={rec} number={1} meta={{ pending: 0, kept: 7, firstSpan: null, sections: {} }} onReview={vi.fn()} onDelete={vi.fn()} onRetry={vi.fn()} />);
     expect(screen.getByText("7 items kept")).toBeInTheDocument();
   });
 
   it("shows a processing label mid-pipeline", () => {
-    render(<RecordingRow recording={{ ...rec, status: "splitting" }} number={1} meta={null} onReview={vi.fn()} onDelete={vi.fn()} />);
+    render(<RecordingRow recording={{ ...rec, status: "splitting" }} number={1} meta={null} onReview={vi.fn()} onDelete={vi.fn()} onRetry={vi.fn()} />);
     expect(screen.getByText("Processing: splitting into items")).toBeInTheDocument();
   });
 
   it("deletes after confirmation", () => {
     const onDelete = vi.fn();
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(<RecordingRow recording={rec} number={1} meta={{ pending: 0, kept: 1, firstSpan: null, sections: {} }} onReview={vi.fn()} onDelete={onDelete} />);
+    render(<RecordingRow recording={rec} number={1} meta={{ pending: 0, kept: 1, firstSpan: null, sections: {} }} onReview={vi.fn()} onDelete={onDelete} onRetry={vi.fn()} />);
     fireEvent.click(screen.getByLabelText("Delete recording"));
     expect(onDelete).toHaveBeenCalledWith("r1");
   });
@@ -154,8 +154,25 @@ describe("RecordingRow", () => {
   it("does not delete when confirmation is declined", () => {
     const onDelete = vi.fn();
     vi.spyOn(window, "confirm").mockReturnValue(false);
-    render(<RecordingRow recording={rec} number={1} meta={null} onReview={vi.fn()} onDelete={onDelete} />);
+    render(<RecordingRow recording={rec} number={1} meta={null} onReview={vi.fn()} onDelete={onDelete} onRetry={vi.fn()} />);
     fireEvent.click(screen.getByLabelText("Delete recording"));
     expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("offers retry on a failed recording", () => {
+    const onRetry = vi.fn();
+    render(
+      <RecordingRow
+        recording={{ ...rec, status: "failed" }}
+        number={1}
+        meta={null}
+        onReview={vi.fn()}
+        onDelete={vi.fn()}
+        onRetry={onRetry}
+      />,
+    );
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Retry"));
+    expect(onRetry).toHaveBeenCalledWith("r1");
   });
 });
