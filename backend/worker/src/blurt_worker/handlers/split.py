@@ -6,6 +6,7 @@ from blurt_core.config import settings
 from blurt_core.db.models import Item, Job, Recording, RecordingStatus, Transcript
 from blurt_core.db.session import get_session
 from blurt_core.logging import job_id_var, recording_id_var
+from blurt_core.pipeline.parsing import loads_lenient
 from blurt_core.pipeline.timing import span_time_range
 from blurt_core.providers.llm import build_llm_client
 from blurt_core.queue import enqueue
@@ -64,12 +65,24 @@ def handle_split(job: Job) -> None:
             prompt_version=_PROMPT_VERSION,
         )
 
+    # Tolerant parse — the LLM can return fences, prose, or (seen in prod) an
+    # empty string for very short/quiet transcripts. Never fail the recording
+    # over it: fall back to treating the whole transcript as a single item so
+    # the user still gets something to review.
+    spans: list[dict[str, str | int]]
     try:
-        spans: list[dict[str, str | int]] = json.loads(raw)
-        if not isinstance(spans, list):
-            raise ValueError("expected a JSON array")
-    except Exception as exc:
-        raise ValueError(f"split LLM returned invalid JSON: {raw!r}") from exc
+        parsed = loads_lenient(raw)
+        spans = parsed if isinstance(parsed, list) else []
+    except ValueError:
+        spans = []
+    if not spans and transcript_text.strip():
+        logger.warning(
+            "split returned no usable spans; using the whole transcript",
+            extra={"recording_id": str(recording_id), "raw_preview": raw[:200]},
+        )
+        spans = [
+            {"text": transcript_text.strip(), "start_char": 0, "end_char": len(transcript_text)}
+        ]
 
     with get_session() as session:
         recording = session.get(Recording, recording_id)

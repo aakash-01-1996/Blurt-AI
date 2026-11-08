@@ -56,9 +56,20 @@ def handle_route(job: Job) -> None:
             prompt_version=ROUTE_PROMPT_VERSION,
         )
 
-    result = parse_route_response(raw)
-    section = result.section
-    confidence = result.confidence
+    # The LLM can return an unexpected section or non-JSON. Don't fail the whole
+    # recording over it — treat it like a low-confidence "skip" so the item is
+    # rejected and the recording can still finish.
+    try:
+        result = parse_route_response(raw)
+        section = result.section
+        confidence = result.confidence
+    except ValueError:
+        logger.warning(
+            "route returned unparseable output; rejecting item",
+            extra={"item_id": str(item_id), "raw_preview": raw[:200]},
+        )
+        section = "skip"
+        confidence = 0.0
 
     with get_session() as session:
         item = session.get(Item, item_id)
